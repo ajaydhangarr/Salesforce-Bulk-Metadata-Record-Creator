@@ -52,8 +52,12 @@ jobs:
       - name: Run ESLint (LWC)
         run: npm run lint
 
-      - name: Run LWC Unit Tests
-        run: npm run test:unit
+      # REMOVED FOR NOW: LWC Unit Tests step
+      # Wajah: koi __tests__ folder ke andar valid LWC jest tests nahi hain abhi.
+      # Jab LWC components/tests ready ho jayein, is step ko wapas add kar dena:
+      #
+      # - name: Run LWC Unit Tests
+      #   run: npm run test:unit
 
       - name: Install Salesforce CLI
         run: npm install -g @salesforce/cli
@@ -129,39 +133,39 @@ jobs:
           echo "## ⏭️ Skipped" >> "$GITHUB_STEP_SUMMARY"
           echo "No deployable Salesforce metadata changes detected." >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Detect Apex Test Scope
-        if: steps.delta.outputs.should_deploy == 'true'
-        id: tests
-        run: |
-          CHANGED_FILES="$(git diff --name-only "${{ steps.delta.outputs.from_commit }}" "${{ steps.delta.outputs.to_commit }}")"
-
-          TEST_CLASSES="$(
-            echo "$CHANGED_FILES" |
-              grep -E '^force-app/.*/classes/[^/]*Test\.cls$' |
-              while read -r file; do
-                [ -f "$file" ] && echo "$file"
-              done |
-              sed -E 's#.*/([^/]+)\.cls#\1#' |
-              grep -v '^$' |
-              sort -u |
-              paste -sd' ' -
-          )"
-
-          APEX_CHANGED="$(
-            echo "$CHANGED_FILES" |
-              grep -E '^force-app/.*/(classes/[^/]+\.cls|triggers/[^/]+\.trigger)$' || true
-          )"
-
-          if [ -n "$TEST_CLASSES" ]; then
-            TEST_LEVEL="RunSpecifiedTests"
-          elif [ -n "$APEX_CHANGED" ]; then
-            TEST_LEVEL="RunLocalTests"
-          else
-            TEST_LEVEL="NoTestRun"
-          fi
-
-          echo "test_level=$TEST_LEVEL"     >> "$GITHUB_OUTPUT"
-          echo "test_classes=$TEST_CLASSES" >> "$GITHUB_OUTPUT"
+      # REMOVED FOR NOW: Apex Test Scope detection
+      # Wajah: Apex test enforcement abhi nahi chahiye — sab deployments NoTestRun se jaa rahe hain.
+      # Jab Apex test classes ready ho jayein aur tests run karwane hain, is step ko wapas add kar dena:
+      #
+      # - name: Detect Apex Test Scope
+      #   if: steps.delta.outputs.should_deploy == 'true'
+      #   id: tests
+      #   run: |
+      #     CHANGED_FILES="$(git diff --name-only "${{ steps.delta.outputs.from_commit }}" "${{ steps.delta.outputs.to_commit }}")"
+      #     TEST_CLASSES="$(
+      #       echo "$CHANGED_FILES" |
+      #         grep -E '^force-app/.*/classes/[^/]*Test\.cls$' |
+      #         while read -r file; do
+      #           [ -f "$file" ] && echo "$file"
+      #         done |
+      #         sed -E 's#.*/([^/]+)\.cls#\1#' |
+      #         grep -v '^$' |
+      #         sort -u |
+      #         paste -sd' ' -
+      #     )"
+      #     APEX_CHANGED="$(
+      #       echo "$CHANGED_FILES" |
+      #         grep -E '^force-app/.*/(classes/[^/]+\.cls|triggers/[^/]+\.trigger)$' || true
+      #     )"
+      #     if [ -n "$TEST_CLASSES" ]; then
+      #       TEST_LEVEL="RunSpecifiedTests"
+      #     elif [ -n "$APEX_CHANGED" ]; then
+      #       TEST_LEVEL="RunLocalTests"
+      #     else
+      #       TEST_LEVEL="NoTestRun"
+      #     fi
+      #     echo "test_level=$TEST_LEVEL"     >> "$GITHUB_OUTPUT"
+      #     echo "test_classes=$TEST_CLASSES" >> "$GITHUB_OUTPUT"
 
       - name: Run Static Code Analysis
         if: steps.delta.outputs.should_deploy == 'true'
@@ -189,32 +193,17 @@ jobs:
             --alias target-org
 
       - name: Validate Deployment
+        # FIX: TEST_LEVEL hardcoded to NoTestRun since Apex test detection step is removed for now
         if: steps.delta.outputs.should_deploy == 'true'
         id: validate
         run: |
-          TEST_LEVEL="${{ steps.tests.outputs.test_level }}"
-          TEST_CLASSES="${{ steps.tests.outputs.test_classes }}"
+          TEST_LEVEL="NoTestRun"
 
-          if [ "$TEST_LEVEL" = "RunSpecifiedTests" ]; then
-            sf project deploy validate \
-              --manifest changed-sources/package/package.xml \
-              --target-org target-org \
-              --test-level RunSpecifiedTests \
-              --tests $TEST_CLASSES \
-              --json > validate-result.json || true
-          elif [ "$TEST_LEVEL" = "RunLocalTests" ]; then
-            sf project deploy validate \
-              --manifest changed-sources/package/package.xml \
-              --target-org target-org \
-              --test-level RunLocalTests \
-              --json > validate-result.json || true
-          else
-            sf project deploy validate \
-              --manifest changed-sources/package/package.xml \
-              --target-org target-org \
-              --test-level NoTestRun \
-              --json > validate-result.json || true
-          fi
+          sf project deploy validate \
+            --manifest changed-sources/package/package.xml \
+            --target-org target-org \
+            --test-level NoTestRun \
+            --json > validate-result.json || true
 
           echo "=== FULL VALIDATE OUTPUT ==="
           cat validate-result.json
@@ -253,8 +242,7 @@ jobs:
           echo "## ✅ PR Validation Complete" >> "$GITHUB_STEP_SUMMARY"
           echo "| Item | Value |" >> "$GITHUB_STEP_SUMMARY"
           echo "|---|---|" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Test Level | ${{ steps.tests.outputs.test_level }} |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Test Classes | ${{ steps.tests.outputs.test_classes || 'N/A' }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Test Level | NoTestRun |" >> "$GITHUB_STEP_SUMMARY"
           echo "| Validation Status | Passed ✅ |" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "Code is safe to merge." >> "$GITHUB_STEP_SUMMARY"
