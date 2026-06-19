@@ -192,17 +192,30 @@ jobs:
             --sfdx-url-file sfdx_auth_url.txt \
             --alias target-org
 
-      - name: Validate Deployment
-        # FIX: TEST_LEVEL hardcoded to NoTestRun since Apex test detection step is removed for now
+      - name: Check for Apex in Delta
         if: steps.delta.outputs.should_deploy == 'true'
+        id: apexcheck
+        run: |
+          # FIX: only force RunLocalTests when delta actually contains Apex.
+          # Org's unrelated old/broken test classes won't block a pure-metadata deploy.
+          if grep -qE '<name>(ApexClass|ApexTrigger)</name>' changed-sources/package/package.xml; then
+            echo "has_apex=true" >> "$GITHUB_OUTPUT"
+            echo "Apex detected in delta — RunLocalTests required for validate"
+          else
+            echo "has_apex=false" >> "$GITHUB_OUTPUT"
+            echo "No Apex in delta — can skip tests via direct deploy"
+          fi
+
+      - name: Validate Deployment (with Apex)
+        # sf project deploy validate doesn't accept NoTestRun — validate ALWAYS needs tests.
+        # Only runs when delta actually contains Apex changes.
+        if: steps.delta.outputs.should_deploy == 'true' && steps.apexcheck.outputs.has_apex == 'true'
         id: validate
         run: |
-          TEST_LEVEL="NoTestRun"
-
           sf project deploy validate \
             --manifest changed-sources/package/package.xml \
             --target-org target-org \
-            --test-level NoTestRun \
+            --test-level RunLocalTests \
             --json > validate-result.json || true
 
           echo "=== FULL VALIDATE OUTPUT ==="
@@ -225,10 +238,24 @@ jobs:
           echo "deploy_id=$DEPLOY_ID" >> "$GITHUB_OUTPUT"
           echo "Validation successful. Deploy ID: $DEPLOY_ID"
 
+      - name: Direct Deploy (No Apex — skip tests entirely)
+        # Pure metadata-only deploy (objects, layouts, permission sets, LWC, etc.)
+        # Uses 'deploy start', not 'validate' — this is the only command that accepts NoTestRun.
+        if: >
+          github.event_name != 'pull_request' &&
+          steps.delta.outputs.should_deploy == 'true' &&
+          steps.apexcheck.outputs.has_apex == 'false'
+        run: |
+          sf project deploy start \
+            --manifest changed-sources/package/package.xml \
+            --target-org target-org \
+            --test-level NoTestRun
+
       - name: Quick Deploy
         if: >
           github.event_name != 'pull_request' &&
           steps.delta.outputs.should_deploy == 'true' &&
+          steps.apexcheck.outputs.has_apex == 'true' &&
           steps.validate.outcome == 'success' &&
           steps.validate.outputs.deploy_id != ''
         run: |
@@ -242,7 +269,8 @@ jobs:
           echo "## ✅ PR Validation Complete" >> "$GITHUB_STEP_SUMMARY"
           echo "| Item | Value |" >> "$GITHUB_STEP_SUMMARY"
           echo "|---|---|" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Test Level | NoTestRun |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Has Apex | ${{ steps.apexcheck.outputs.has_apex }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Test Level | ${{ steps.apexcheck.outputs.has_apex == 'true' && 'RunLocalTests' || 'NoTestRun (no Apex in delta)' }} |" >> "$GITHUB_STEP_SUMMARY"
           echo "| Validation Status | Passed ✅ |" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "Code is safe to merge." >> "$GITHUB_STEP_SUMMARY"
