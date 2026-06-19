@@ -1,0 +1,728 @@
+<template>
+  <lightning-card title="Salesforce Bulk Creator" icon-name="custom:custom67">
+    <template if:true={isLoading}>
+      <lightning-spinner alternative-text="Loading" size="medium" variant="brand"></lightning-spinner>
+    </template>
+
+    <div class="slds-p-around_medium">
+      <lightning-tabset variant="scoped">
+        <lightning-tab label="Schema Creator (Object &amp; Fields)">
+          <div class="schema-creator-tab">
+            <div class="slds-box slds-m-bottom_medium slds-theme_shade">
+              <h3 class="slds-text-heading_small slds-m-bottom_small">Target Object Configuration</h3>
+
+              <div class="slds-m-bottom_medium">
+                <lightning-radio-group
+                  name="objectMode"
+                  label="Deploy To"
+                  options={objectModeOptions}
+                  value={objectMode}
+                  type="button"
+                  onchange={handleObjectModeChange}
+                ></lightning-radio-group>
+              </div>
+
+              <template if:true={isExistingObjectMode}>
+                <div class="slds-form-element slds-m-bottom_small input-shell">
+                  <label class="slds-form-element__label" for="selectedExistingObjectInput">
+                    <abbr class="slds-required" title="required">*</abbr>
+                    Select Target Object
+                  </label>
+                  <div class="slds-form-element__control">
+                    <input
+                      id="selectedExistingObjectInput"
+                      type="text"
+                      class="slds-input"
+                      placeholder="Type to search Object (e.g. Account)..."
+                      value={existingObjectSearchTerm}
+                      oninput={handleExistingObjectSearch}
+                      onfocus={handleExistingObjectFocus}
+                      onblur={handleExistingObjectBlur}
+                      required
+                      autocomplete="off"
+                    />
+                  </div>
+
+                  <template if:true={showExistingObjectDropdown}>
+                    <div class="custom-dropdown-container">
+                      <ul class="custom-dropdown-list">
+                        <template for:each={filteredExistingObjectOptions} for:item="opt">
+                          <li
+                            key={opt.value}
+                            class="custom-dropdown-item"
+                            data-value={opt.value}
+                            data-label={opt.label}
+                            onmousedown={handleExistingObjectOptionMouseDown}
+                            onclick={handleExistingObjectSelect}
+                          >
+                            <span class="custom-dropdown-label">{opt.label}</span>
+                            <span class="custom-dropdown-value">{opt.value}</span>
+                          </li>
+                        </template>
+                        <template if:false={filteredExistingObjectOptions.length}>
+                          <li class="custom-dropdown-no-results">No objects found</li>
+                        </template>
+                      </ul>
+                    </div>
+                  </template>
+                </div>
+              </template>
+
+              <template if:true={isNewObjectMode}>
+                <div class="slds-grid slds-gutters slds-wrap">
+                  <div class="slds-col slds-size_1-of-1 slds-medium-size_2-of-12">
+                    <lightning-input
+                      type="text"
+                      label="Object Label"
+                      value={newObject.label}
+                      onchange={handleNewObjectLabelChange}
+                      required
+                    ></lightning-input>
+                  </div>
+                  <div class="slds-col slds-size_1-of-1 slds-medium-size_2-of-12">
+                    <lightning-input
+                      type="text"
+                      label="Plural Label"
+                      value={newObject.pluralLabel}
+                      onchange={handleNewObjectPluralChange}
+                      required
+                    ></lightning-input>
+                  </div>
+                  <div class="slds-col slds-size_1-of-1 slds-medium-size_2-of-12">
+                    <lightning-input
+                      type="text"
+                      label="API Name"
+                      value={newObject.apiName}
+                      onchange={handleNewObjectApiChange}
+                      field-level-help="Will auto-append __c if missing"
+                      required
+                    ></lightning-input>
+                  </div>
+                  <div class="slds-col slds-size_1-of-1 slds-medium-size_2-of-12">
+                    <lightning-input
+                      type="text"
+                      label="Name Field Label"
+                      value={newObject.nameFieldLabel}
+                      onchange={handleNewObjectNameFieldLabelChange}
+                      required
+                    ></lightning-input>
+                  </div>
+                  <div class="slds-col slds-size_1-of-1 slds-medium-size_2-of-12">
+                    <lightning-combobox
+                      name="nameFieldType"
+                      label="Name Field Type"
+                      value={newObject.nameFieldType}
+                      options={nameFieldTypeOptions}
+                      onchange={handleNewObjectNameFieldTypeChange}
+                      required
+                    ></lightning-combobox>
+                  </div>
+                  <div class="slds-col slds-size_1-of-1 slds-medium-size_2-of-12">
+                    <lightning-combobox
+                      name="objectTheme"
+                      label="Tab Theme Icon"
+                      value={newObject.theme}
+                      options={themeOptions}
+                      onchange={handleNewObjectThemeChange}
+                      required
+                    ></lightning-combobox>
+                  </div>
+                </div>
+              </template>
+            </div>
+
+            <div class="slds-box slds-m-bottom_medium">
+              <div class="section-header">
+                <h3 class="slds-text-heading_small">Define Fields</h3>
+                <lightning-button
+                  label="Add Field Row"
+                  icon-name="utility:add"
+                  onclick={handleAddFieldRow}
+                ></lightning-button>
+              </div>
+
+              <template if:true={fieldRows.length}>
+                <div class="slds-scrollable_x">
+                  <table class="slds-table slds-table_bordered slds-no-row-hover slds-table_cell-buffer">
+                    <thead>
+                      <tr class="slds-line-height_reset">
+                        <th scope="col" style="width:5%">Row</th>
+                        <th scope="col" style="width:19%">Field Label</th>
+                        <th scope="col" style="width:19%">API Name</th>
+                        <th scope="col" style="width:16%">Data Type</th>
+                        <th scope="col" style="width:19%">Type Settings</th>
+                        <th scope="col" style="width:6%; text-align:center">Required</th>
+                        <th scope="col" style="width:16%">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <template for:each={processedFieldRows} for:item="row" for:index="index">
+                        <tr key={row.key} class="slds-hint-parent">
+                          <td class="row-number-cell">{row.rowNumber}</td>
+
+                          <td>
+                            <lightning-input
+                              type="text"
+                              variant="label-hidden"
+                              placeholder="e.g. Salary"
+                              value={row.label}
+                              data-index={index}
+                              onchange={handleFieldLabelChange}
+                              required
+                            ></lightning-input>
+                          </td>
+
+                          <td>
+                            <lightning-input
+                              type="text"
+                              variant="label-hidden"
+                              placeholder="e.g. Salary__c"
+                              value={row.apiName}
+                              data-index={index}
+                              onchange={handleFieldApiChange}
+                              required
+                            ></lightning-input>
+                          </td>
+
+                          <td>
+                            <lightning-combobox
+                              variant="label-hidden"
+                              value={row.dataType}
+                              options={dataTypeOptions}
+                              data-index={index}
+                              onchange={handleFieldTypeChange}
+                              required
+                            ></lightning-combobox>
+                          </td>
+
+                          <td>
+                            <template if:true={row.isText}>
+                              <lightning-input
+                                type="number"
+                                variant="label-hidden"
+                                placeholder="Length"
+                                value={row.length}
+                                data-index={index}
+                                onchange={handleFieldLengthChange}
+                                min="1"
+                                max="255"
+                                required
+                              ></lightning-input>
+                            </template>
+
+                            <template if:true={row.isLookup}>
+                              <div class="input-shell">
+                                <input
+                                  type="text"
+                                  class="slds-input"
+                                  placeholder="Search Related Object..."
+                                  value={row.relatedObjectSearchTerm}
+                                  data-index={index}
+                                  data-key={row.key}
+                                  oninput={handleFieldRelatedObjectSearch}
+                                  onfocus={handleFieldRelatedObjectFocus}
+                                  onblur={handleFieldRelatedObjectBlur}
+                                  required
+                                  autocomplete="off"
+                                />
+
+                                <template if:true={row.showDropdown}>
+                                  <div class="custom-dropdown-container">
+                                    <ul class="custom-dropdown-list">
+                                      <template for:each={row.filteredOptions} for:item="opt">
+                                        <li
+                                          key={opt.value}
+                                          class="custom-dropdown-item"
+                                          data-value={opt.value}
+                                          data-label={opt.label}
+                                          data-index={index}
+                                          data-key={row.key}
+                                          onmousedown={handleFieldRelatedObjectOptionMouseDown}
+                                          onclick={handleFieldRelatedObjectSelect}
+                                        >
+                                          <span class="custom-dropdown-label">{opt.label}</span>
+                                          <span class="custom-dropdown-value">{opt.value}</span>
+                                        </li>
+                                      </template>
+                                      <template if:false={row.filteredOptions.length}>
+                                        <li class="custom-dropdown-no-results">No objects found</li>
+                                      </template>
+                                    </ul>
+                                  </div>
+                                </template>
+                              </div>
+                            </template>
+
+                            <template if:true={row.isAutoNumber}>
+                              <div class="slds-grid slds-gutters slds-grid_vertical-align-center">
+                                <div class="slds-col slds-size_1-of-2">
+                                  <lightning-input
+                                    type="text"
+                                    variant="label-hidden"
+                                    placeholder="Display Format"
+                                    value={row.displayFormat}
+                                    data-index={index}
+                                    onchange={handleFieldDisplayFormatChange}
+                                    required
+                                  ></lightning-input>
+                                </div>
+                                <div class="slds-col slds-size_1-of-2">
+                                  <lightning-input
+                                    type="number"
+                                    variant="label-hidden"
+                                    placeholder="Start No."
+                                    value={row.startingNumber}
+                                    data-index={index}
+                                    onchange={handleFieldStartingNumberChange}
+                                    required
+                                  ></lightning-input>
+                                </div>
+                              </div>
+                            </template>
+
+                            <template if:true={row.isFormula}>
+                              <div class="slds-m-bottom_xx-small">
+                                <lightning-combobox
+                                  variant="label-hidden"
+                                  placeholder="Formula Return Type"
+                                  value={row.formulaType}
+                                  options={formulaTypeOptions}
+                                  data-index={index}
+                                  onchange={handleFieldFormulaTypeChange}
+                                  required
+                                ></lightning-combobox>
+                              </div>
+                              <lightning-textarea
+                                variant="label-hidden"
+                                placeholder="Formula Expression"
+                                value={row.formula}
+                                data-index={index}
+                                onchange={handleFieldFormulaChange}
+                                required
+                              ></lightning-textarea>
+                            </template>
+
+                            <template if:true={row.isPicklist}>
+                              <div class="slds-m-bottom_xx-small">
+                                <lightning-textarea
+                                  variant="label-hidden"
+                                  placeholder="Values (comma or newline separated)"
+                                  value={row.picklistValues}
+                                  data-index={index}
+                                  onchange={handleFieldPicklistValuesChange}
+                                  required
+                                ></lightning-textarea>
+                              </div>
+                              <template if:true={row.isMultiselect}>
+                                <lightning-input
+                                  type="number"
+                                  variant="label-hidden"
+                                  placeholder="Visible Lines"
+                                  value={row.visibleLines}
+                                  data-index={index}
+                                  onchange={handleFieldVisibleLinesChange}
+                                  min="1"
+                                  required
+                                ></lightning-input>
+                              </template>
+                            </template>
+
+                            <template if:true={row.isLocation}>
+                              <lightning-input
+                                type="number"
+                                variant="label-hidden"
+                                placeholder="Decimal Scale"
+                                value={row.scale}
+                                data-index={index}
+                                onchange={handleFieldScaleChange}
+                                min="0"
+                                max="8"
+                                required
+                              ></lightning-input>
+                            </template>
+
+                            <template if:true={row.isHtml}>
+                              <div class="slds-grid slds-gutters slds-grid_vertical-align-center">
+                                <div class="slds-col slds-size_1-of-2">
+                                  <lightning-input
+                                    type="number"
+                                    variant="label-hidden"
+                                    placeholder="Length"
+                                    value={row.length}
+                                    data-index={index}
+                                    onchange={handleFieldLengthChange}
+                                    min="1"
+                                    max="131072"
+                                    required
+                                  ></lightning-input>
+                                </div>
+                                <div class="slds-col slds-size_1-of-2">
+                                  <lightning-input
+                                    type="number"
+                                    variant="label-hidden"
+                                    placeholder="Visible Lines"
+                                    value={row.visibleLines}
+                                    data-index={index}
+                                    onchange={handleFieldVisibleLinesChange}
+                                    min="1"
+                                    required
+                                  ></lightning-input>
+                                </div>
+                              </div>
+                            </template>
+
+                            <template if:true={row.isEncrypted}>
+                              <lightning-input
+                                type="number"
+                                variant="label-hidden"
+                                placeholder="Length"
+                                value={row.length}
+                                data-index={index}
+                                onchange={handleFieldLengthChange}
+                                min="1"
+                                max="175"
+                                required
+                              ></lightning-input>
+                            </template>
+
+                            <template if:true={row.isOther}>
+                              <span class="slds-text-color_weak slds-text-body_small">
+                                No settings required
+                              </span>
+                            </template>
+                          </td>
+
+                          <td style="text-align:center">
+                            <lightning-input
+                              type="checkbox"
+                              variant="label-hidden"
+                              checked={row.isRequired}
+                              data-index={index}
+                              onchange={handleFieldRequiredChange}
+                            ></lightning-input>
+                          </td>
+
+                          <td>
+                            <div class={row.statusClass}>
+                              <template if:true={row.hasResult}>
+                                <span class="row-status-label">{row.resultStatus}</span>
+                                <span class="row-status-message">{row.resultMessage}</span>
+                              </template>
+                              <template if:false={row.hasResult}>
+                                <div class="action-buttons">
+                                  <lightning-button-icon
+                                    icon-name="utility:copy"
+                                    variant="border-filled"
+                                    alternative-text="Clone Row"
+                                    data-index={index}
+                                    onclick={handleCloneFieldRow}
+                                    title="Clone Row"
+                                  ></lightning-button-icon>
+                                  <lightning-button-icon
+                                    icon-name="utility:delete"
+                                    variant="border-filled"
+                                    alternative-text="Delete Row"
+                                    data-index={index}
+                                    onclick={handleDeleteFieldRow}
+                                    title="Delete Row"
+                                  ></lightning-button-icon>
+                                </div>
+                              </template>
+                            </div>
+                          </td>
+                        </tr>
+                      </template>
+                    </tbody>
+                  </table>
+                </div>
+              </template>
+
+              <template if:false={fieldRows.length}>
+                <div class="empty-state">
+                  <span class="empty-state-icon">*</span>
+                  <span class="empty-state-text">No fields defined. Click "Add Field Row" to get started.</span>
+                </div>
+              </template>
+            </div>
+
+            <div class="deploy-action">
+              <lightning-button
+                label="Validate &amp; Deploy Schema"
+                variant="brand"
+                icon-name="utility:upload"
+                onclick={handleDeploySchema}
+              ></lightning-button>
+            </div>
+          </div>
+        </lightning-tab>
+
+        <lightning-tab label="Record Creator (Data)">
+          <div class="record-creator-tab">
+            <div class="slds-box slds-m-bottom_medium slds-theme_shade input-shell">
+              <div class="slds-form-element">
+                <label class="slds-form-element__label" for="recordTargetObjectInput">
+                  <abbr class="slds-required" title="required">*</abbr>
+                  Target Object
+                </label>
+                <div class="slds-form-element__control">
+                  <input
+                    id="recordTargetObjectInput"
+                    type="text"
+                    class="slds-input"
+                    placeholder="Type to search an Object to insert records into..."
+                    value={recordTargetObjectSearchTerm}
+                    oninput={handleRecordTargetObjectSearch}
+                    onfocus={handleRecordTargetObjectFocus}
+                    onblur={handleRecordTargetObjectBlur}
+                    required
+                    autocomplete="off"
+                  />
+                </div>
+
+                <template if:true={showRecordTargetObjectDropdown}>
+                  <div class="custom-dropdown-container">
+                    <ul class="custom-dropdown-list">
+                      <template for:each={filteredRecordTargetObjectOptions} for:item="opt">
+                        <li
+                          key={opt.value}
+                          class="custom-dropdown-item"
+                          data-value={opt.value}
+                          data-label={opt.label}
+                          onmousedown={handleRecordTargetObjectOptionMouseDown}
+                          onclick={handleRecordTargetObjectSelect}
+                        >
+                          <span class="custom-dropdown-label">{opt.label}</span>
+                          <span class="custom-dropdown-value">{opt.value}</span>
+                        </li>
+                      </template>
+                      <template if:false={filteredRecordTargetObjectOptions.length}>
+                        <li class="custom-dropdown-no-results">No objects found</li>
+                      </template>
+                    </ul>
+                  </div>
+                </template>
+              </div>
+            </div>
+
+            <template if:true={recordTargetObject}>
+              <div class="slds-box slds-m-bottom_medium">
+                <div class="section-header">
+                  <h3 class="slds-text-heading_small">Record Data Grid</h3>
+                  <lightning-button
+                    label="Add Record Row"
+                    icon-name="utility:add"
+                    onclick={handleAddRecordRow}
+                  ></lightning-button>
+                </div>
+
+                <template if:true={recordRows.length}>
+                  <div class="slds-scrollable_x">
+                    <table class="slds-table slds-table_bordered slds-no-row-hover slds-table_cell-buffer">
+                      <thead>
+                        <tr class="slds-line-height_reset">
+                          <template for:each={activeObjectFields} for:item="field">
+                            <th key={field.value} scope="col">
+                              <span class="record-col-header">{field.label}</span>
+                              <div class="record-col-subtitle">{field.value}</div>
+                            </th>
+                          </template>
+                          <th scope="col" style="width:52px; text-align:center">Del</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <template for:each={recordRows} for:item="row" for:index="rowIndex">
+                          <tr key={row.key} class="slds-hint-parent">
+                            <template for:each={activeObjectFields} for:item="field">
+                              <td key={field.value}>
+                                <template if:true={field.isBoolean}>
+                                  <lightning-input
+                                    class="record-input"
+                                    type="checkbox"
+                                    variant="label-hidden"
+                                    data-field={field.value}
+                                    data-row={rowIndex}
+                                    onchange={handleRecordValueChange}
+                                  ></lightning-input>
+                                </template>
+
+                                <template if:true={field.isDate}>
+                                  <lightning-input
+                                    class="record-input"
+                                    type="date"
+                                    variant="label-hidden"
+                                    data-field={field.value}
+                                    data-row={rowIndex}
+                                    required={field.isRequired}
+                                    onchange={handleRecordValueChange}
+                                  ></lightning-input>
+                                </template>
+
+                                <template if:true={field.isDateTime}>
+                                  <lightning-input
+                                    class="record-input"
+                                    type="datetime"
+                                    variant="label-hidden"
+                                    data-field={field.value}
+                                    data-row={rowIndex}
+                                    required={field.isRequired}
+                                    onchange={handleRecordValueChange}
+                                  ></lightning-input>
+                                </template>
+
+                                <template if:true={field.isNumber}>
+                                  <lightning-input
+                                    class="record-input"
+                                    type="number"
+                                    variant="label-hidden"
+                                    data-field={field.value}
+                                    data-row={rowIndex}
+                                    required={field.isRequired}
+                                    onchange={handleRecordValueChange}
+                                  ></lightning-input>
+                                </template>
+
+                                <template if:true={field.isText}>
+                                  <lightning-input
+                                    class="record-input"
+                                    type="text"
+                                    variant="label-hidden"
+                                    data-field={field.value}
+                                    data-row={rowIndex}
+                                    required={field.isRequired}
+                                    onchange={handleRecordValueChange}
+                                  ></lightning-input>
+                                </template>
+                              </td>
+                            </template>
+
+                            <td style="text-align:center">
+                              <div class="btn-delete">
+                                <lightning-button-icon
+                                  icon-name="utility:delete"
+                                  variant="border-filled"
+                                  alternative-text="Delete Record Row"
+                                  data-row={rowIndex}
+                                  onclick={handleDeleteRecordRow}
+                                  title="Delete Record Row"
+                                ></lightning-button-icon>
+                              </div>
+                            </td>
+                          </tr>
+                        </template>
+                      </tbody>
+                    </table>
+                  </div>
+                </template>
+
+                <template if:false={recordRows.length}>
+                  <div class="empty-state">
+                    <span class="empty-state-icon">+</span>
+                    <span class="empty-state-text">No records added yet. Click "Add Record Row" to start.</span>
+                  </div>
+                </template>
+              </div>
+
+              <div class="deploy-action">
+                <lightning-button
+                  label="Save Records"
+                  variant="brand"
+                  icon-name="utility:save"
+                  onclick={handleSaveRecords}
+                  disabled={isSaveDisabled}
+                ></lightning-button>
+              </div>
+            </template>
+          </div>
+        </lightning-tab>
+      </lightning-tabset>
+    </div>
+  </lightning-card>
+
+  <template if:true={isDeploymentModalOpen}>
+    <section role="dialog" tabindex="-1" aria-modal="true" class="slds-modal slds-fade-in-open">
+      <div class="slds-modal__container deployment-modal">
+        <header class="slds-modal__header">
+          <lightning-button-icon
+            class="slds-modal__close"
+            icon-name="utility:close"
+            alternative-text="Close"
+            onclick={handleCloseDeploymentModal}
+          ></lightning-button-icon>
+          <h2 class="slds-text-heading_medium">Deployment Results</h2>
+        </header>
+
+        <div class="slds-modal__content slds-p-around_medium">
+          <div class="result-summary-grid">
+            <div class="summary-card">
+              <span class="summary-label">Overall</span>
+              <span class="summary-value">{deploymentSummaryLabel}</span>
+              <span class="summary-message">{deploymentResult.overallMessage}</span>
+            </div>
+
+            <template if:true={hasObjectResult}>
+              <div class="summary-card">
+                <span class="summary-label">Object Deployment</span>
+                <span class={objectResultClass}>
+                  <template if:true={deploymentResult.objectResult.success}>Success</template>
+                  <template if:false={deploymentResult.objectResult.success}>Failed</template>
+                </span>
+                <span class="summary-message">{deploymentResult.objectResult.message}</span>
+              </div>
+            </template>
+          </div>
+
+          <div class="section-header results-toolbar">
+            <lightning-radio-group
+              type="button"
+              label="Rows"
+              options={deploymentFilterOptions}
+              value={deploymentFilter}
+              onchange={handleDeploymentFilterChange}
+            ></lightning-radio-group>
+
+            <lightning-button
+              label="Retry Failed"
+              icon-name="utility:refresh"
+              onclick={handleRetryFailedRows}
+              disabled={isRetryFailedDisabled}
+            ></lightning-button>
+          </div>
+
+          <div class="slds-scrollable_x results-table-shell">
+            <table class="slds-table slds-table_bordered slds-table_cell-buffer">
+              <thead>
+                <tr class="slds-line-height_reset">
+                  <th scope="col">Row</th>
+                  <th scope="col">Field Label</th>
+                  <th scope="col">API Name</th>
+                  <th scope="col">Type</th>
+                  <th scope="col">Target Object</th>
+                  <th scope="col">Status</th>
+                  <th scope="col">Message</th>
+                </tr>
+              </thead>
+              <tbody>
+                <template for:each={filteredDeploymentRows} for:item="row">
+                  <tr key={row.rowKey}>
+                    <td>{row.rowNumber}</td>
+                    <td>{row.label}</td>
+                    <td>{row.apiName}</td>
+                    <td>{row.dataType}</td>
+                    <td>{row.targetObject}</td>
+                    <td><span class={row.statusClass}>{row.status}</span></td>
+                    <td class="message-cell">{row.message}</td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <footer class="slds-modal__footer">
+          <lightning-button label="Close" onclick={handleCloseDeploymentModal}></lightning-button>
+        </footer>
+      </div>
+    </section>
+    <div class="slds-backdrop slds-backdrop_open"></div>
+  </template>
+</template>
