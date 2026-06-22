@@ -486,8 +486,7 @@
                           <template for:each={selectedProfiles} for:item="profile">
                             <span key={profile.value} class="fls-profile-chip">
                               {profile.label}
-                              <button
-                                class="fls-chip-remove"
+                              <button type="button" class="fls-chip-remove"
                                 data-value={profile.value}
                                 onclick={handleProfileRemove}
                                 title="Remove profile"

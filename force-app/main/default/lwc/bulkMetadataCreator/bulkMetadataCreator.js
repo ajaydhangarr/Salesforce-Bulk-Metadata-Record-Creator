@@ -384,7 +384,7 @@ export default class BulkMetadataCreator extends LightningElement {
   }
 
   handleCloneFieldRow(event) {
-    const index = parseInt(event.target.dataset.index, 10);
+    const index = parseInt(event.currentTarget.dataset.index, 10);
     const rowToClone = this.fieldRows[index];
     const rowKey = this.generateRowKey();
 
@@ -410,13 +410,13 @@ export default class BulkMetadataCreator extends LightningElement {
   }
 
   handleDeleteFieldRow(event) {
-    const index = parseInt(event.target.dataset.index, 10);
+    const index = parseInt(event.currentTarget.dataset.index, 10);
     this.fieldRows = this.fieldRows.filter((_, idx) => idx !== index);
     this.clearDeploymentResult();
   }
 
   handleFieldLabelChange(event) {
-    const index = parseInt(event.target.dataset.index, 10);
+    const index = parseInt(event.currentTarget.dataset.index, 10);
     const val = event.target.value;
     const updatedRows = [...this.fieldRows];
     updatedRows[index].label = val;
@@ -426,7 +426,7 @@ export default class BulkMetadataCreator extends LightningElement {
   }
 
   handleFieldApiChange(event) {
-    const index = parseInt(event.target.dataset.index, 10);
+    const index = parseInt(event.currentTarget.dataset.index, 10);
     const updatedRows = [...this.fieldRows];
     updatedRows[index].apiName = event.target.value;
     this.fieldRows = updatedRows;
@@ -434,7 +434,7 @@ export default class BulkMetadataCreator extends LightningElement {
   }
 
   handleFieldTypeChange(event) {
-    const index = parseInt(event.target.dataset.index, 10);
+    const index = parseInt(event.currentTarget.dataset.index, 10);
     const typeSelected = event.target.value;
     const updatedRows = [...this.fieldRows];
 
@@ -513,7 +513,7 @@ export default class BulkMetadataCreator extends LightningElement {
   }
 
   handleFieldFormulaTypeChange(event) {
-    const index = parseInt(event.target.dataset.index, 10);
+    const index = parseInt(event.currentTarget.dataset.index, 10);
     const updatedRows = [...this.fieldRows];
     const formulaType = event.target.value;
     updatedRows[index].formulaType = formulaType;
@@ -553,7 +553,7 @@ export default class BulkMetadataCreator extends LightningElement {
   }
 
   handleFieldRelatedObjectSearch(event) {
-    const index = parseInt(event.target.dataset.index, 10);
+    const index = parseInt(event.currentTarget.dataset.index, 10);
     const updatedRows = [...this.fieldRows];
     updatedRows[index].relatedObjectSearchTerm = event.target.value;
     updatedRows[index].relatedObject = event.target.value;
@@ -563,7 +563,7 @@ export default class BulkMetadataCreator extends LightningElement {
   }
 
   handleFieldRelatedObjectFocus(event) {
-    const index = parseInt(event.target.dataset.index, 10);
+    const index = parseInt(event.currentTarget.dataset.index, 10);
     const updatedRows = [...this.fieldRows];
     updatedRows[index].showDropdown = true;
     this.fieldRows = updatedRows;
@@ -574,7 +574,7 @@ export default class BulkMetadataCreator extends LightningElement {
   }
 
   handleFieldRelatedObjectBlur(event) {
-    const index = parseInt(event.target.dataset.index, 10);
+    const index = parseInt(event.currentTarget.dataset.index, 10);
     const rowKey = event.target.dataset.key;
     if (this.suppressFieldBlurKey === rowKey) {
       this.suppressFieldBlurKey = null;
@@ -1152,12 +1152,14 @@ export default class BulkMetadataCreator extends LightningElement {
   }
 
   handleProfileRemove(event) {
+    event.preventDefault();
+    event.stopPropagation();
     const value = event.currentTarget.dataset.value;
     this.selectedProfiles = this.selectedProfiles.filter((p) => p.value !== value);
   }
 
   handleProfileReadChange(event) {
-    const index = parseInt(event.target.dataset.index, 10);
+    const index = parseInt(event.currentTarget.dataset.index, 10);
     const isRead = event.target.checked;
     const updated = [...this.selectedProfiles];
     updated[index] = {
@@ -1170,7 +1172,7 @@ export default class BulkMetadataCreator extends LightningElement {
   }
 
   handleProfileEditChange(event) {
-    const index = parseInt(event.target.dataset.index, 10);
+    const index = parseInt(event.currentTarget.dataset.index, 10);
     const isEdit = event.target.checked;
     const updated = [...this.selectedProfiles];
     updated[index] = {
@@ -1183,3 +1185,4 @@ export default class BulkMetadataCreator extends LightningElement {
     this.selectedProfiles = updated;
   }
 }
+
