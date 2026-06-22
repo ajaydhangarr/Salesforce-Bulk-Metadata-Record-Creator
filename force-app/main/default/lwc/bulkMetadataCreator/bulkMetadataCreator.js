@@ -126,11 +126,11 @@ export default class BulkMetadataCreator extends LightningElement {
   }
 
   @wire(getProfiles)
-  wiredProfiles({ data, error }) {
+  wiredProfiles({ data }) {
     if (data) {
       this.profileOptions = data;
     }
-    // Non-critical — silently ignore errors; FLS section won't appear if profiles can't load
+    // Non-critical — silently ignore errors; FLS section won't show profiles if load fails
   }
 
   get isExistingObjectMode() {
