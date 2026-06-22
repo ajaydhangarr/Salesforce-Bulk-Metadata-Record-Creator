@@ -177,6 +177,17 @@ export default class BulkMetadataCreator extends LightningElement {
           opt.label.toLowerCase().includes(term) ||
           opt.value.toLowerCase().includes(term)
       );
+
+      const dataTypeOptionsWithSelection = this.dataTypeOptions.map((opt) => ({
+        ...opt,
+        isSelected: opt.value === row.dataType
+      }));
+
+      const formulaTypeOptionsWithSelection = this.formulaTypeOptions.map((opt) => ({
+        ...opt,
+        isSelected: opt.value === row.formulaType
+      }));
+
       const resultRow = this.getDeploymentRowResult(row.key);
       const statusClass = resultRow
         ? resultRow.success
@@ -188,6 +199,9 @@ export default class BulkMetadataCreator extends LightningElement {
         ...row,
         rowNumber: index + 1,
         filteredOptions,
+        dataTypeOptionsWithSelection,
+        formulaTypeOptionsWithSelection,
+        isNoFormulaTypeSelected: !row.formulaType,
         resultStatus: resultRow ? (resultRow.success ? "Success" : resultRow.status) : "",
         resultMessage: resultRow ? resultRow.message : "",
         hasResult: Boolean(resultRow),
@@ -421,7 +435,7 @@ export default class BulkMetadataCreator extends LightningElement {
 
   handleFieldTypeChange(event) {
     const index = parseInt(event.target.dataset.index, 10);
-    const typeSelected = event.detail.value;
+    const typeSelected = event.target.value;
     const updatedRows = [...this.fieldRows];
 
     updatedRows[index].dataType = typeSelected;
@@ -501,7 +515,7 @@ export default class BulkMetadataCreator extends LightningElement {
   handleFieldFormulaTypeChange(event) {
     const index = parseInt(event.target.dataset.index, 10);
     const updatedRows = [...this.fieldRows];
-    const formulaType = event.detail.value;
+    const formulaType = event.target.value;
     updatedRows[index].formulaType = formulaType;
     updatedRows[index].length = formulaType === "Text" ? 255 : null;
     updatedRows[index].scale =

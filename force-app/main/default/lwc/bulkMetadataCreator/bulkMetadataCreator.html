@@ -185,14 +185,20 @@
                           </td>
 
                           <td>
-                            <lightning-combobox
-                              variant="label-hidden"
-                              value={row.dataType}
-                              options={dataTypeOptions}
-                              data-index={index}
-                              onchange={handleFieldTypeChange}
-                              required
-                            ></lightning-combobox>
+                            <div class="slds-select_container">
+                              <select
+                                class="slds-select"
+                                data-index={index}
+                                onchange={handleFieldTypeChange}
+                                required
+                              >
+                                <template for:each={row.dataTypeOptionsWithSelection} for:item="opt">
+                                  <option key={opt.value} value={opt.value} selected={opt.isSelected}>
+                                    {opt.label}
+                                  </option>
+                                </template>
+                              </select>
+                            </div>
                           </td>
 
                           <td>
@@ -282,15 +288,21 @@
 
                             <template if:true={row.isFormula}>
                               <div class="slds-m-bottom_xx-small">
-                                <lightning-combobox
-                                  variant="label-hidden"
-                                  placeholder="Formula Return Type"
-                                  value={row.formulaType}
-                                  options={formulaTypeOptions}
-                                  data-index={index}
-                                  onchange={handleFieldFormulaTypeChange}
-                                  required
-                                ></lightning-combobox>
+                                <div class="slds-select_container">
+                                  <select
+                                    class="slds-select"
+                                    data-index={index}
+                                    onchange={handleFieldFormulaTypeChange}
+                                    required
+                                  >
+                                    <option value="" disabled selected={row.isNoFormulaTypeSelected}>-- Formula Return Type --</option>
+                                    <template for:each={row.formulaTypeOptionsWithSelection} for:item="opt">
+                                      <option key={opt.value} value={opt.value} selected={opt.isSelected}>
+                                        {opt.label}
+                                      </option>
+                                    </template>
+                                  </select>
+                                </div>
                               </div>
                               <lightning-textarea
                                 variant="label-hidden"

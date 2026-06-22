@@ -114,19 +114,22 @@
   padding-top: 0.75rem;
 }
 
-.slds-input {
+.slds-input,
+.slds-select {
   border-radius: 6px;
   border: 1px solid #cbd5e1;
-  padding: 0.4rem 0.65rem;
-  font-size: 0.875rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.8125rem;
   color: #1e293b;
   width: 100%;
   box-sizing: border-box;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
   background-color: #fff;
+  height: 1.875rem; /* Compact height aligning with lightning-input */
 }
 
-.slds-input:focus {
+.slds-input:focus,
+.slds-select:focus {
   outline: none;
   border-color: #2563eb;
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
@@ -163,7 +166,7 @@ lightning-spinner {
   top: 100%;
   left: 0;
   width: 100%;
-  max-height: 200px;
+  max-height: 150px; /* Shorter dropdown height to prevent scrollbars */
   overflow-y: auto;
   background: #ffffff;
   border: 1px solid #cbd5e1;
@@ -180,7 +183,7 @@ lightning-spinner {
 }
 
 .custom-dropdown-item {
-  padding: 10px 14px;
+  padding: 6px 10px; /* More compact option padding */
   cursor: pointer;
   display: flex;
   flex-direction: column;
