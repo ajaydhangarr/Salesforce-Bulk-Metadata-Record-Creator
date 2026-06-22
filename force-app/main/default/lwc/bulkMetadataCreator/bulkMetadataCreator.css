@@ -516,6 +516,15 @@ lightning-spinner {
   margin-top: 0.5rem;
 }
 
+/* Profile dropdown opens UPWARD — FLS panel is always near page bottom,
+   so opening downward would push past the viewport and trigger page scroll */
+.fls-profile-selector .custom-dropdown-container {
+  top: auto;
+  bottom: 100%;
+  margin-top: 0;
+  margin-bottom: 4px;
+}
+
 /* FLS Results inside modal */
 .fls-results-section {
   background: #f0f7ff;
