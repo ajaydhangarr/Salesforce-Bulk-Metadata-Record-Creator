@@ -445,6 +445,131 @@
               </template>
             </div>
 
+            <!-- ═══ FLS Assignment Section ═══ -->
+            <template if:true={showFlsSection}>
+              <div class="fls-section slds-m-bottom_medium">
+                <div class="fls-header">
+                  <div class="fls-header-left">
+                    <lightning-icon icon-name="utility:shield" size="x-small" class="fls-shield-icon"></lightning-icon>
+                    <h3 class="slds-text-heading_small">Field-Level Security (FLS) Assignment</h3>
+                  </div>
+                  <div class="fls-header-right">
+                    <span class="fls-toggle-label">Assign FLS to Profiles after deployment</span>
+                    <lightning-input
+                      type="toggle"
+                      label="Enable FLS"
+                      variant="label-hidden"
+                      checked={flsEnabled}
+                      onchange={handleFlsToggleChange}
+                    ></lightning-input>
+                  </div>
+                </div>
+
+                <template if:true={flsEnabled}>
+                  <div class="fls-body">
+                    <div class="slds-form-element slds-m-bottom_small">
+                      <label class="slds-form-element__label fls-profile-label">Select Profiles</label>
+                      <div class="fls-profile-selector input-shell">
+                        <div class="fls-chips-row">
+                          <template for:each={selectedProfiles} for:item="profile">
+                            <span key={profile.value} class="fls-profile-chip">
+                              {profile.label}
+                              <button
+                                class="fls-chip-remove"
+                                data-value={profile.value}
+                                onclick={handleProfileRemove}
+                                title="Remove profile"
+                              >&times;</button>
+                            </span>
+                          </template>
+                          <input
+                            type="text"
+                            class="slds-input fls-profile-input"
+                            placeholder="Type to search profiles..."
+                            value={profileSearchTerm}
+                            oninput={handleProfileSearch}
+                            onfocus={handleProfileFocus}
+                            onblur={handleProfileBlur}
+                            autocomplete="off"
+                          />
+                        </div>
+                        <template if:true={showProfileDropdown}>
+                          <div class="custom-dropdown-container">
+                            <ul class="custom-dropdown-list">
+                              <template for:each={filteredProfileOptions} for:item="opt">
+                                <li
+                                  key={opt.value}
+                                  class="custom-dropdown-item"
+                                  data-value={opt.value}
+                                  data-label={opt.label}
+                                  data-metadata-name={opt.metadataName}
+                                  onmousedown={handleProfileOptionMouseDown}
+                                  onclick={handleProfileSelect}
+                                >
+                                  <span class="custom-dropdown-label">{opt.label}</span>
+                                </li>
+                              </template>
+                              <template if:false={filteredProfileOptions.length}>
+                                <li class="custom-dropdown-no-results">No profiles found</li>
+                              </template>
+                            </ul>
+                          </div>
+                        </template>
+                      </div>
+                    </div>
+
+                    <template if:true={selectedProfiles.length}>
+                      <div class="fls-table-container">
+                        <table class="slds-table slds-table_bordered slds-table_cell-buffer fls-permission-table">
+                          <thead>
+                            <tr class="slds-line-height_reset">
+                              <th scope="col" style="width:60%">Profile</th>
+                              <th scope="col" style="width:20%; text-align:center">Read All Fields</th>
+                              <th scope="col" style="width:20%; text-align:center">Edit All Fields</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <template for:each={selectedProfiles} for:item="profile" for:index="idx">
+                              <tr key={profile.value} class="slds-hint-parent">
+                                <td class="fls-profile-name-cell">{profile.label}</td>
+                                <td style="text-align:center">
+                                  <lightning-input
+                                    type="checkbox"
+                                    variant="label-hidden"
+                                    checked={profile.readAll}
+                                    data-index={idx}
+                                    onchange={handleProfileReadChange}
+                                  ></lightning-input>
+                                </td>
+                                <td style="text-align:center">
+                                  <lightning-input
+                                    type="checkbox"
+                                    variant="label-hidden"
+                                    checked={profile.editAll}
+                                    disabled={profile.isEditDisabled}
+                                    data-index={idx}
+                                    onchange={handleProfileEditChange}
+                                  ></lightning-input>
+                                </td>
+                              </tr>
+                            </template>
+                          </tbody>
+                        </table>
+                      </div>
+                      <p class="fls-note">&#128274; FLS will be applied only to successfully created fields.</p>
+                    </template>
+
+                    <template if:false={selectedProfiles.length}>
+                      <div class="fls-empty-profiles">
+                        <span>Search and select one or more profiles above to configure permissions.</span>
+                      </div>
+                    </template>
+                  </div>
+                </template>
+              </div>
+            </template>
+            <!-- ═══ End FLS Section ═══ -->
+
             <div class="deploy-action">
               <lightning-button
                 label="Validate &amp; Deploy Schema"
@@ -717,6 +842,31 @@
             </table>
           </div>
         </div>
+
+        <!-- FLS Results -->
+        <template if:true={hasFlsResults}>
+          <div class="slds-modal__content slds-p-around_medium fls-results-section">
+            <h3 class="slds-text-heading_small slds-m-bottom_small fls-results-heading">
+              &#128274;&nbsp;FLS Assignment Results
+            </h3>
+            <ul class="fls-result-list">
+              <template for:each={processedFlsResults} for:item="fls">
+                <li key={fls.profileLabel} class="fls-result-item">
+                  <span class="fls-result-icon">
+                    <template if:true={fls.success}>&#10004;</template>
+                    <template if:false={fls.success}>&#10006;</template>
+                  </span>
+                  <div class="fls-result-body">
+                    <span class="fls-result-profile">{fls.profileLabel}</span>
+                    <span class="fls-result-detail">{fls.summaryLine}</span>
+                  </div>
+                  <span class={fls.statusClass}>{fls.statusLabel}</span>
+                </li>
+              </template>
+            </ul>
+          </div>
+        </template>
+
 
         <footer class="slds-modal__footer">
           <lightning-button label="Close" onclick={handleCloseDeploymentModal}></lightning-button>

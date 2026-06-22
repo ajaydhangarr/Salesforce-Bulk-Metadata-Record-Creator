@@ -65,10 +65,12 @@
 }
 
 .slds-scrollable_x {
-  overflow-x: auto;
+  /* overflow: visible lets lightning-combobox dropdowns escape the container.
+     Setting overflow-x: auto would also clip overflow-y per CSS spec,
+     trapping the absolute-positioned dropdown inside and hiding it. */
+  overflow: visible;
   border-radius: 8px;
   border: 1px solid #e2e8f0;
-  min-height: 250px;
 }
 
 .btn-delete lightning-button-icon {
@@ -320,7 +322,8 @@ lightning-spinner {
 }
 
 .results-table-shell {
-  min-height: auto;
+  overflow-x: auto; /* explicit scroll for the results table - not affected by parent fix above */
+  overflow-y: auto;
   max-height: 26rem;
 }
 
@@ -344,3 +347,244 @@ lightning-spinner {
     min-width: 9rem;
   }
 }
+
+/* ─── FLS Assignment Panel ──────────────────────────────────────────────── */
+
+.fls-section {
+  background: #eef4ff;
+  border: 1px solid #c7d9f9;
+  border-left: 4px solid #2563eb;
+  border-radius: 8px;
+  overflow: visible;
+}
+
+.fls-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.85rem 1rem;
+  gap: 1rem;
+  border-bottom: 1px solid #d1e0fb;
+}
+
+.fls-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.fls-shield-icon {
+  --slds-c-icon-color-foreground-default: #2563eb;
+}
+
+.fls-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  flex-shrink: 0;
+}
+
+.fls-toggle-label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #334155;
+  white-space: nowrap;
+}
+
+.fls-body {
+  padding: 1rem;
+}
+
+.fls-profile-label {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 0.4rem;
+  display: block;
+}
+
+.fls-profile-selector {
+  position: relative;
+}
+
+.fls-chips-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.5rem;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  min-height: 2.2rem;
+  cursor: text;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.fls-chips-row:focus-within {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.fls-profile-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: #2563eb;
+  color: #ffffff;
+  border-radius: 999px;
+  padding: 0.15rem 0.55rem 0.15rem 0.65rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.fls-chip-remove {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.9rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 0.1rem;
+  display: flex;
+  align-items: center;
+  transition: color 0.15s ease;
+}
+
+.fls-chip-remove:hover {
+  color: #ffffff;
+}
+
+.fls-profile-input {
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0.2rem 0.25rem;
+  flex: 1;
+  min-width: 9rem;
+  font-size: 0.8125rem;
+  background: transparent;
+}
+
+.fls-profile-input:focus {
+  outline: none;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.fls-table-container {
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid #c7d9f9;
+  margin-top: 0.75rem;
+}
+
+.fls-permission-table thead th {
+  background-color: #dbeafe;
+  color: #1e40af;
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+  padding: 10px 14px;
+  border-bottom: 1px solid #bfdbfe;
+}
+
+.fls-profile-name-cell {
+  font-weight: 600;
+  font-size: 0.8125rem;
+  color: #1e293b;
+}
+
+.fls-note {
+  font-size: 0.75rem;
+  color: #64748b;
+  margin-top: 0.5rem;
+  font-style: italic;
+}
+
+.fls-empty-profiles {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  color: #64748b;
+  font-size: 0.8125rem;
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: 6px;
+  border: 1px dashed #93c5fd;
+  margin-top: 0.5rem;
+}
+
+/* FLS Results inside modal */
+.fls-results-section {
+  background: #f0f7ff;
+  border-top: 2px solid #bfdbfe;
+}
+
+.fls-results-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: #1e40af;
+  margin-bottom: 0.75rem !important;
+}
+
+.fls-result-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.fls-result-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: #ffffff;
+  border: 1px solid #dbeafe;
+  border-radius: 8px;
+  padding: 0.7rem 1rem;
+}
+
+.fls-result-icon {
+  font-size: 1.1rem;
+  font-weight: 700;
+  flex-shrink: 0;
+  width: 1.4rem;
+  text-align: center;
+}
+
+.fls-result-item:has(.status-pill-success) .fls-result-icon {
+  color: #166534;
+}
+
+.fls-result-item:has(.status-pill-error) .fls-result-icon {
+  color: #b91c1c;
+}
+
+.fls-result-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.fls-result-profile {
+  font-weight: 700;
+  font-size: 0.875rem;
+  color: #1e293b;
+}
+
+.fls-result-detail {
+  font-size: 0.75rem;
+  color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+

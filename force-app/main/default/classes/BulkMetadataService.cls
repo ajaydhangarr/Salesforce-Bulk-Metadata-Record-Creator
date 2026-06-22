@@ -48,6 +48,13 @@ public with sharing class BulkMetadataService {
         public String message;
     }
 
+    public class ProfileFlsResult {
+        @AuraEnabled public String profileLabel;
+        @AuraEnabled public Boolean success;
+        @AuraEnabled public String message;
+        @AuraEnabled public Integer fieldsApplied;
+    }
+
     @AuraEnabled(cacheable=true)
     public static List<Map<String, String>> getObjects() {
         try {
@@ -104,6 +111,72 @@ public with sharing class BulkMetadataService {
                 }
             }
             return fields;
+        } catch (Exception e) {
+            throw newAuraHandledException(e.getMessage());
+        }
+    }
+
+    @AuraEnabled(cacheable=true)
+    public static List<Map<String, String>> getProfiles() {
+        try {
+            List<Map<String, String>> profileList = new List<Map<String, String>>();
+            for (Profile p : [SELECT Id, Name FROM Profile ORDER BY Name LIMIT 200]) {
+                Map<String, String> profileMap = new Map<String, String>();
+                profileMap.put('label', p.Name);
+                profileMap.put('value', p.Name);
+                profileMap.put('metadataName', getProfileMetadataName(p.Name));
+                profileList.add(profileMap);
+            }
+            return profileList;
+        } catch (Exception e) {
+            throw newAuraHandledException(e.getMessage());
+        }
+    }
+
+    @AuraEnabled
+    public static List<ProfileFlsResult> assignProfileFls(
+        List<ProfileFlsAssignment> assignments,
+        List<String> successfulFieldApiNames
+    ) {
+        try {
+            List<ProfileFlsResult> results = new List<ProfileFlsResult>();
+            if (assignments == null || assignments.isEmpty()
+                || successfulFieldApiNames == null || successfulFieldApiNames.isEmpty()) {
+                return results;
+            }
+            for (ProfileFlsAssignment assignment : assignments) {
+                ProfileFlsResult flsResult = new ProfileFlsResult();
+                flsResult.profileLabel = assignment.profileLabel;
+                flsResult.fieldsApplied = successfulFieldApiNames.size();
+
+                Boolean readable = assignment.readAll == true;
+                Boolean editable = assignment.editAll == true && readable;
+
+                List<String> metadata = new List<String>();
+                metadata.add('<met:metadata xsi:type="met:Profile">');
+                metadata.add('<met:fullName>' + escapeXml(assignment.profileMetadataName) + '</met:fullName>');
+
+                for (String fieldApiName : successfulFieldApiNames) {
+                    metadata.add('<met:fieldPermissions>');
+                    metadata.add('<met:field>' + escapeXml(fieldApiName) + '</met:field>');
+                    metadata.add('<met:readable>' + (readable ? 'true' : 'false') + '</met:readable>');
+                    metadata.add('<met:editable>' + (editable ? 'true' : 'false') + '</met:editable>');
+                    metadata.add('</met:fieldPermissions>');
+                }
+
+                metadata.add('</met:metadata>');
+
+                MetadataCallResult callResult = updateMetadata(metadata);
+                flsResult.success = callResult.success;
+                flsResult.message = callResult.success
+                    ? 'FLS applied to ' + successfulFieldApiNames.size() + ' field(s) successfully.'
+                    : callResult.message;
+                results.add(flsResult);
+            }
+            return results;
+        } catch (CalloutException ce) {
+            throw newAuraHandledException('FLS callout failed: ' + ce.getMessage()
+                + '. Ensure the Org Domain is in Remote Site Settings.');
         } catch (Exception e) {
             throw newAuraHandledException(e.getMessage());
         }
@@ -453,14 +526,22 @@ public with sharing class BulkMetadataService {
     }
 
     private static MetadataCallResult createMetadata(List<String> metadataSegments) {
+        return executeMetadataOperation(metadataSegments, 'createMetadata');
+    }
+
+    private static MetadataCallResult updateMetadata(List<String> metadataSegments) {
+        return executeMetadataOperation(metadataSegments, 'updateMetadata');
+    }
+
+    private static MetadataCallResult executeMetadataOperation(List<String> metadataSegments, String operationName) {
         String endpoint = Url.getOrgDomainUrl().toExternalForm() + '/services/Soap/m/67.0';
-        String soapBody = buildSoapEnvelope(metadataSegments);
+        String soapBody = buildSoapEnvelope(metadataSegments, operationName);
 
         HttpRequest req = new HttpRequest();
         req.setEndpoint(endpoint);
         req.setMethod('POST');
         req.setHeader('Content-Type', 'text/xml; charset=UTF-8');
-        req.setHeader('SOAPAction', 'createMetadata');
+        req.setHeader('SOAPAction', operationName);
         req.setBody(soapBody);
 
         HttpResponse res = new Http().send(req);
@@ -495,7 +576,7 @@ public with sharing class BulkMetadataService {
         return UserInfo.getSessionId();
     }
 
-    private static String buildSoapEnvelope(List<String> metadataSegments) {
+    private static String buildSoapEnvelope(List<String> metadataSegments, String operationName) {
         String soap = '';
         soap += '<?xml version="1.0" encoding="utf-8"?>';
         soap += '<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:met="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">';
@@ -503,9 +584,9 @@ public with sharing class BulkMetadataService {
         soap += '<met:SessionHeader><met:sessionId>' + escapeXml(getSessionId()) + '</met:sessionId></met:SessionHeader>';
         soap += '</soapenv:Header>';
         soap += '<soapenv:Body>';
-        soap += '<met:createMetadata>';
+        soap += '<met:' + operationName + '>';
         soap += String.join(metadataSegments, '');
-        soap += '</met:createMetadata>';
+        soap += '</met:' + operationName + '>';
         soap += '</soapenv:Body>';
         soap += '</soapenv:Envelope>';
         return soap;
@@ -545,6 +626,27 @@ public with sharing class BulkMetadataService {
             return soapBody.substring(fullNameStart + 10, fullNameEnd) + ' created successfully.';
         }
         return 'Created successfully.';
+    }
+
+    private static String getProfileMetadataName(String profileName) {
+        Map<String, String> standardProfiles = new Map<String, String>{
+            'System Administrator' => 'Admin',
+            'Standard User'       => 'Standard',
+            'Read Only'           => 'ReadOnly',
+            'Solution Manager'    => 'SolutionManager',
+            'Contract Manager'    => 'ContractManager',
+            'Marketing User'      => 'MarketingUser',
+            'Chatter External User'  => 'ChatterExternal',
+            'Chatter Free User'      => 'ChatterFree',
+            'Chatter Moderator User' => 'ChatterModerator',
+            'Force.com - Free User'  => 'FreeUser',
+            'Minimum Access - Salesforce' => 'MinimumAccess',
+            'Identity User'       => 'IdentityUser',
+            'External Identity'   => 'ExternalIdentityUser'
+        };
+        return standardProfiles.containsKey(profileName)
+            ? standardProfiles.get(profileName)
+            : profileName;
     }
 
     private static String escapeXml(String value) {

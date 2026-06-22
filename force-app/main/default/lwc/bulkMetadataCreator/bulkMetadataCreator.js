@@ -5,6 +5,8 @@ import getObjects from "@salesforce/apex/BulkMetadataService.getObjects";
 import getObjectFields from "@salesforce/apex/BulkMetadataService.getObjectFields";
 import deploySchema from "@salesforce/apex/BulkMetadataService.deploySchema";
 import insertRecords from "@salesforce/apex/BulkMetadataService.insertRecords";
+import getProfiles from "@salesforce/apex/BulkMetadataService.getProfiles";
+import assignProfileFls from "@salesforce/apex/BulkMetadataService.assignProfileFls";
 
 export default class BulkMetadataCreator extends LightningElement {
   @track objectOptions = [];
@@ -36,6 +38,14 @@ export default class BulkMetadataCreator extends LightningElement {
   suppressExistingObjectBlur = false;
   suppressRecordTargetObjectBlur = false;
   suppressFieldBlurKey = null;
+  suppressProfileBlur = false;
+
+  @track flsEnabled = false;
+  @track profileOptions = [];
+  @track selectedProfiles = [];
+  @track profileSearchTerm = "";
+  @track showProfileDropdown = false;
+  @track flsResults = [];
 
   objectModeOptions = [
     { label: "Existing Object", value: "existing" },
@@ -113,6 +123,14 @@ export default class BulkMetadataCreator extends LightningElement {
         "error"
       );
     }
+  }
+
+  @wire(getProfiles)
+  wiredProfiles({ data, error }) {
+    if (data) {
+      this.profileOptions = data;
+    }
+    // Non-critical — silently ignore errors; FLS section won't appear if profiles can't load
   }
 
   get isExistingObjectMode() {
@@ -234,6 +252,37 @@ export default class BulkMetadataCreator extends LightningElement {
       const resultRow = this.getDeploymentRowResult(row.key);
       return resultRow && !resultRow.success;
     });
+  }
+
+  get filteredProfileOptions() {
+    const selected = new Set(this.selectedProfiles.map((p) => p.value));
+    const term = this.profileSearchTerm.toLowerCase();
+    return this.profileOptions.filter(
+      (opt) =>
+        !selected.has(opt.value) &&
+        (!term || opt.label.toLowerCase().includes(term))
+    );
+  }
+
+  get hasFlsResults() {
+    return this.flsResults && this.flsResults.length > 0;
+  }
+
+  get processedFlsResults() {
+    return this.flsResults.map((r) => ({
+      ...r,
+      statusLabel: r.success ? "Success" : "Failed",
+      statusClass: r.success
+        ? "status-pill status-pill-success"
+        : "status-pill status-pill-error",
+      summaryLine: r.success
+        ? `${r.fieldsApplied} field(s) updated`
+        : r.message
+    }));
+  }
+
+  get showFlsSection() {
+    return this.fieldRows.length > 0;
   }
 
   handleObjectModeChange(event) {
@@ -632,7 +681,6 @@ export default class BulkMetadataCreator extends LightningElement {
       const result = await deploySchema({ objDef: objDefPayload, fields: fieldsPayload });
       this.deploymentResult = result;
       this.deploymentFilter = result.failureCount > 0 ? "failed" : "all";
-      this.isDeploymentModalOpen = true;
 
       const toastVariant = result.failureCount > 0 ? "warning" : "success";
       const toastTitle =
@@ -640,6 +688,47 @@ export default class BulkMetadataCreator extends LightningElement {
       this.showToast(toastTitle, result.overallMessage, toastVariant);
 
       await refreshApex(this.wiredObjectsResult);
+
+      // FLS step — runs only when fields succeeded and FLS is enabled
+      this.flsResults = [];
+      if (this.flsEnabled && this.selectedProfiles.length > 0 && result.successCount > 0) {
+        const successfulFields = result.fieldResults
+          .filter((r) => r.success)
+          .map((r) => `${r.targetObject}.${r.apiName}`);
+
+        try {
+          this.flsResults = await assignProfileFls({
+            assignments: this.selectedProfiles.map((p) => ({
+              profileLabel: p.label,
+              profileMetadataName: p.metadataName,
+              readAll: p.readAll,
+              editAll: p.editAll
+            })),
+            successfulFieldApiNames: successfulFields
+          });
+
+          const flsSuccessCount = this.flsResults.filter((r) => r.success).length;
+          const flsFailCount = this.flsResults.length - flsSuccessCount;
+          if (flsFailCount > 0) {
+            this.showToast(
+              "FLS Assignment Issues",
+              `${flsSuccessCount} profile(s) updated, ${flsFailCount} failed. Check results for details.`,
+              "warning"
+            );
+          } else {
+            this.showToast(
+              "FLS Assigned",
+              `Field permissions applied to ${flsSuccessCount} profile(s).`,
+              "success"
+            );
+          }
+        } catch (flsError) {
+          const flsMsg = flsError?.body?.message || flsError?.message || "FLS assignment failed.";
+          this.showToast("FLS Assignment Failed", flsMsg, "error");
+        }
+      }
+
+      this.isDeploymentModalOpen = true;
 
       if (result.failureCount === 0) {
         this.resetSchemaForm();
@@ -998,5 +1087,85 @@ export default class BulkMetadataCreator extends LightningElement {
 
   showToast(title, message, variant) {
     this.dispatchEvent(new ShowToastEvent({ title, message, variant }));
+  }
+
+  // ─── FLS / Profile handlers ────────────────────────────────────────────────
+
+  handleFlsToggleChange(event) {
+    this.flsEnabled = event.target.checked;
+    if (!this.flsEnabled) {
+      this.selectedProfiles = [];
+      this.profileSearchTerm = "";
+      this.flsResults = [];
+    }
+  }
+
+  handleProfileSearch(event) {
+    this.profileSearchTerm = event.target.value;
+    this.showProfileDropdown = true;
+  }
+
+  handleProfileFocus() {
+    this.showProfileDropdown = true;
+  }
+
+  handleProfileOptionMouseDown() {
+    this.suppressProfileBlur = true;
+  }
+
+  handleProfileBlur() {
+    if (this.suppressProfileBlur) {
+      this.suppressProfileBlur = false;
+      return;
+    }
+    this.showProfileDropdown = false;
+    this.profileSearchTerm = "";
+  }
+
+  handleProfileSelect(event) {
+    const value = event.currentTarget.dataset.value;
+    const label = event.currentTarget.dataset.label;
+    const metadataName = event.currentTarget.dataset.metadataName;
+    if (!this.selectedProfiles.find((p) => p.value === value)) {
+      this.selectedProfiles = [
+        ...this.selectedProfiles,
+        // Default: Read=true, Edit=true — admin can uncheck if needed
+        { value, label, metadataName, readAll: true, editAll: true, isEditDisabled: false }
+      ];
+    }
+    this.profileSearchTerm = "";
+    this.showProfileDropdown = false;
+  }
+
+  handleProfileRemove(event) {
+    const value = event.currentTarget.dataset.value;
+    this.selectedProfiles = this.selectedProfiles.filter((p) => p.value !== value);
+  }
+
+  handleProfileReadChange(event) {
+    const index = parseInt(event.target.dataset.index, 10);
+    const isRead = event.target.checked;
+    const updated = [...this.selectedProfiles];
+    updated[index] = {
+      ...updated[index],
+      readAll: isRead,
+      editAll: isRead ? updated[index].editAll : false,
+      isEditDisabled: !isRead
+    };
+    this.selectedProfiles = updated;
+  }
+
+  handleProfileEditChange(event) {
+    const index = parseInt(event.target.dataset.index, 10);
+    const isEdit = event.target.checked;
+    const updated = [...this.selectedProfiles];
+    updated[index] = {
+      ...updated[index],
+      editAll: isEdit,
+      // Auto-fix: Salesforce requires readable=true whenever editable=true
+      readAll: isEdit ? true : updated[index].readAll,
+      isEditDisabled: false
+    };
+    this.selectedProfiles = updated;
   }
 }

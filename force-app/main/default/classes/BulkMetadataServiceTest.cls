@@ -199,4 +199,69 @@ public class BulkMetadataServiceTest {
         System.assertEquals(1, accounts.size(), 'Should have inserted one account');
         System.assertEquals('1234567890', accounts[0].Phone, 'Phone number should match');
     }
+    @IsTest
+    static void testAssignProfileFlsSuccess() {
+        Test.setMock(HttpCalloutMock.class, new MockHttpResponseGenerator(false, null));
+
+        ProfileFlsAssignment assignment = new ProfileFlsAssignment();
+        assignment.profileMetadataName = 'Admin';
+        assignment.profileLabel = 'System Administrator';
+        assignment.readAll = true;
+        assignment.editAll = true;
+
+        List<String> fieldApiNames = new List<String>{
+            'Account.Salary__c',
+            'Account.Employee_ID__c'
+        };
+
+        Test.startTest();
+        List<BulkMetadataService.ProfileFlsResult> results = BulkMetadataService.assignProfileFls(
+            new List<ProfileFlsAssignment>{ assignment },
+            fieldApiNames
+        );
+        Test.stopTest();
+
+        System.assertEquals(1, results.size(), 'Should return one result per profile');
+        System.assertEquals(true, results[0].success, 'FLS assignment should succeed');
+        System.assertEquals('System Administrator', results[0].profileLabel, 'Profile label should be preserved');
+        System.assertEquals(2, results[0].fieldsApplied, 'Should report 2 fields applied');
+        System.assert(results[0].message.contains('successfully'), 'Success message should confirm FLS applied');
+    }
+
+    @IsTest
+    static void testAssignProfileFlsFailure() {
+        Test.setMock(
+            HttpCalloutMock.class,
+            new MockHttpResponseGenerator(false, new Set<String>{ 'Account.Salary__c' })
+        );
+
+        ProfileFlsAssignment assignment = new ProfileFlsAssignment();
+        assignment.profileMetadataName = 'Standard';
+        assignment.profileLabel = 'Standard User';
+        assignment.readAll = true;
+        assignment.editAll = false;
+
+        Test.startTest();
+        List<BulkMetadataService.ProfileFlsResult> results = BulkMetadataService.assignProfileFls(
+            new List<ProfileFlsAssignment>{ assignment },
+            new List<String>{ 'Account.Salary__c' }
+        );
+        Test.stopTest();
+
+        System.assertEquals(1, results.size(), 'Should return one result');
+        System.assertEquals(false, results[0].success, 'FLS assignment should fail');
+        System.assert(String.isNotBlank(results[0].message), 'Failure message should be populated');
+    }
+
+    @IsTest
+    static void testAssignProfileFlsEmptyInputs() {
+        Test.startTest();
+        List<BulkMetadataService.ProfileFlsResult> results = BulkMetadataService.assignProfileFls(
+            new List<ProfileFlsAssignment>(),
+            new List<String>{ 'Account.Salary__c' }
+        );
+        Test.stopTest();
+
+        System.assertEquals(0, results.size(), 'Empty assignments should return empty list');
+    }
 }
